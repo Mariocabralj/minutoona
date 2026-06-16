@@ -77,14 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "FGH Prepara" },
+      { name: "description", content: "FGH Audit Prep generates custom ONA audit preparation question guides for hospital leaders." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "FGH Prepara" },
+      { property: "og:description", content: "FGH Audit Prep generates custom ONA audit preparation question guides for hospital leaders." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "FGH Prepara" },
+      { name: "twitter:description", content: "FGH Audit Prep generates custom ONA audit preparation question guides for hospital leaders." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e80aa4f1-824d-40c2-b6a7-f5a7e89f9142/id-preview-4c6118e3--57cf3525-b5a2-4865-8351-fa805cf6585e.lovable.app-1781629061294.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e80aa4f1-824d-40c2-b6a7-f5a7e89f9142/id-preview-4c6118e3--57cf3525-b5a2-4865-8351-fa805cf6585e.lovable.app-1781629061294.png" },
     ],
     links: [
       {
