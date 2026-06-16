@@ -43,7 +43,7 @@ function buildContent(data: z.infer<typeof inputSchema>): ContentPart[] {
   const content: ContentPart[] = [];
   const quantidade = data.quantidade ?? 7;
 
-  let instrucao = `Tema que o líder deseja treinar com a equipe:\n"""${data.tema}"""\n\nGere ${quantidade} perguntas de simulação de auditoria ONA.`;
+  let instrucao = `Tema que o líder deseja treinar com a equipe:\n"""${data.tema}"""\n\nGere ${quantidade} perguntas de simulação de auditoria ONA.\n\nResponda em formato JSON com os campos: resumo (string) e perguntas (array de objetos com eixo, pergunta, gabarito, diretriz).`;
 
   if (data.documentoTexto && data.documentoTexto.trim()) {
     instrucao += `\n\nDocumento institucional (texto):\n"""${data.documentoTexto.slice(0, 180000)}"""`;
