@@ -1,10 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Activity, FileText, Printer, Sparkles, ShieldCheck } from "lucide-react";
+import { useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  Activity,
+  FileText,
+  Printer,
+  Sparkles,
+  ShieldCheck,
+  Upload,
+  Loader2,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { gerarRoteiro, type GeneratedQuestion } from "@/lib/auditData";
+import {
+  gerarRoteiroIA,
+  type RoteiroQuestion,
+} from "@/lib/roteiro.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,16 +40,76 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [assunto, setAssunto] = useState("");
-  const [perguntas, setPerguntas] = useState<GeneratedQuestion[] | null>(null);
+  const [perguntas, setPerguntas] = useState<RoteiroQuestion[] | null>(null);
   const [eixos, setEixos] = useState<string[]>([]);
-  const [generico, setGenerico] = useState(false);
+  const [resumo, setResumo] = useState("");
+  const [quantidade, setQuantidade] = useState(7);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [pdfNome, setPdfNome] = useState<string | null>(null);
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleGerar() {
+  const gerar = useServerFn(gerarRoteiroIA);
+
+  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setErro("Envie um arquivo PDF válido.");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setErro("O PDF deve ter no máximo 15 MB.");
+      return;
+    }
+    setErro(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1] ?? "";
+      setPdfBase64(base64);
+      setPdfNome(file.name);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removePdf() {
+    setPdfBase64(null);
+    setPdfNome(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleGerar() {
     if (!assunto.trim()) return;
-    const r = gerarRoteiro(assunto);
-    setPerguntas(r.perguntas);
-    setEixos(r.eixos);
-    setGenerico(r.generico);
+    setLoading(true);
+    setErro(null);
+    try {
+      const r = await gerar({
+        data: {
+          tema: assunto,
+          quantidade,
+          ...(pdfBase64
+            ? { pdfBase64, pdfNome: pdfNome ?? "documento.pdf" }
+            : {}),
+        },
+      });
+      if (!r.perguntas.length) {
+        setErro("A IA não retornou perguntas. Tente detalhar melhor o tema.");
+        return;
+      }
+      setPerguntas(r.perguntas);
+      setEixos(r.eixos);
+      setResumo(r.resumo);
+    } catch (err) {
+      setErro(
+        err instanceof Error
+          ? err.message
+          : "Erro ao gerar o roteiro. Tente novamente.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handlePrint() {
@@ -74,26 +147,96 @@ function Index() {
                 </h2>
               </div>
               <label className="mb-2 block text-sm font-semibold text-foreground">
-                Assunto ou documento institucional
+                O que você deseja treinar com a equipe?
               </label>
               <Textarea
                 value={assunto}
                 onChange={(e) => setAssunto(e.target.value)}
-                placeholder="Cole aqui o assunto que você deseja tratar ou o documento institucional!"
+                placeholder="Ex.: Administração segura de medicamentos na UTI; ou cole o procedimento institucional que quer auditar."
                 className="min-h-44 resize-y rounded-xl text-sm"
               />
+
+              {/* Upload de PDF */}
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-semibold text-foreground">
+                  Documento institucional (PDF) — opcional
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handlePdfChange}
+                  className="hidden"
+                />
+                {pdfNome ? (
+                  <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
+                    <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
+                      <FileText className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate">{pdfNome}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={removePdf}
+                      className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-background"
+                      aria-label="Remover PDF"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-background px-3 py-3 text-sm font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Anexar PDF para a IA analisar
+                  </button>
+                )}
+              </div>
+
+              {/* Quantidade de perguntas */}
+              <div className="mt-4">
+                <label className="mb-2 block text-sm font-semibold text-foreground">
+                  Quantidade de perguntas: {quantidade}
+                </label>
+                <input
+                  type="range"
+                  min={3}
+                  max={15}
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(Number(e.target.value))}
+                  className="w-full accent-primary"
+                />
+              </div>
+
               <Button
                 onClick={handleGerar}
-                disabled={!assunto.trim()}
-                className="mt-4 w-full rounded-xl py-6 text-sm font-bold"
+                disabled={!assunto.trim() || loading}
+                className="mt-5 w-full rounded-xl py-6 text-sm font-bold"
               >
-                <ShieldCheck className="h-5 w-5" />
-                Gerar Roteiro de Auditoria (Máx. 3 Minutos)
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Gerando com IA...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="h-5 w-5" />
+                    Gerar Roteiro de Auditoria com IA
+                  </>
+                )}
               </Button>
+
+              {erro && (
+                <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+                  {erro}
+                </p>
+              )}
+
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                A ferramenta identifica eixos assistenciais críticos (medicamentos,
-                identificação, higienização, quedas, prontuário) e seleciona perguntas
-                ONA direcionadas.
+                A IA lê o PDF anexado e correlaciona o conteúdo com o tema escolhido,
+                gerando perguntas, gabaritos e diretrizes ONA personalizadas.
               </p>
             </div>
           </section>
@@ -125,18 +268,15 @@ function Index() {
                     <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
                       Roteiro de Auditoria ONA
                     </h2>
+                    {resumo && (
+                      <p className="mt-1 text-sm text-muted-foreground">{resumo}</p>
+                    )}
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {generico ? (
-                        <Badge variant="secondary" className="font-medium">
-                          Alinhamento Geral ONA
+                      {eixos.map((e) => (
+                        <Badge key={e} variant="secondary" className="font-medium">
+                          {e}
                         </Badge>
-                      ) : (
-                        eixos.map((e) => (
-                          <Badge key={e} variant="secondary" className="font-medium">
-                            {e}
-                          </Badge>
-                        ))
-                      )}
+                      ))}
                     </div>
                   </div>
                   <Button
