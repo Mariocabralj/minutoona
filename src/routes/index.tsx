@@ -203,7 +203,7 @@ function Index() {
                 <input
                   type="range"
                   min={3}
-                  max={15}
+                  max={10}
                   value={quantidade}
                   onChange={(e) => setQuantidade(Number(e.target.value))}
                   className="w-full accent-primary"

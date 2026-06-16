@@ -6,7 +6,7 @@ const inputSchema = z.object({
   documentoTexto: z.string().max(200000).optional(),
   pdfBase64: z.string().optional(),
   pdfNome: z.string().optional(),
-  quantidade: z.number().int().min(3).max(15).optional(),
+  quantidade: z.number().int().min(3).max(10).optional(),
 });
 
 export interface RoteiroQuestion {
