@@ -22,13 +22,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "FGH Prepara | Simulador de Auditoria ONA" },
+      { title: "Minuto ONA | Simulador de Auditoria ONA" },
       {
         name: "description",
         content:
           "Gere roteiros de perguntas rápidos e personalizados para preparar colaboradores antes da auditoria ONA. Módulo do Entrevistador da FGH.",
       },
-      { property: "og:title", content: "FGH Prepara | Simulador de Auditoria ONA" },
+      { property: "og:title", content: "Minuto ONA | Simulador de Auditoria ONA" },
       {
         property: "og:description",
         content: "Roteiros de auditoria ONA personalizados em menos de 3 minutos.",
@@ -126,7 +126,7 @@ function Index() {
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">
-              FGH Prepara
+              Minuto ONA
             </h1>
             <p className="truncate text-xs font-medium text-primary-foreground/70 sm:text-sm">
               Simulador de Auditoria ONA — Módulo do Entrevistador
@@ -263,7 +263,7 @@ function Index() {
                 <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:mb-3">
                   <div className="min-w-0">
                     <div className="hidden print:block">
-                      <p className="text-sm font-bold text-primary">FGH Prepara</p>
+                      <p className="text-sm font-bold text-primary">Minuto ONA</p>
                     </div>
                     <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
                       Roteiro de Auditoria ONA
@@ -323,7 +323,7 @@ function Index() {
 
                 {/* Rodapé técnico (apenas impressão) */}
                 <footer className="mt-8 hidden border-t border-border pt-3 text-center text-xs text-muted-foreground print:block">
-                  Fundação Gestão Hospitalar (FGH) — Documento gerado pelo FGH Prepara.
+                  Fundação Gestão Hospitalar (FGH) — Documento gerado pelo Minuto ONA.
                 </footer>
               </div>
             )}
