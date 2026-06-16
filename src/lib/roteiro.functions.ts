@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText, Output } from "ai";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { createGroqProvider } from "./ai-gateway.server";
 
 const inputSchema = z.object({
   tema: z.string().min(1).max(4000),
@@ -49,20 +49,7 @@ function buildContent(data: z.infer<typeof inputSchema>): ContentPart[] {
     instrucao += `\n\nDocumento institucional (texto):\n"""${data.documentoTexto.slice(0, 180000)}"""`;
   }
 
-  if (data.pdfBase64) {
-    instrucao +=
-      "\n\nAnalise o PDF anexado e correlacione seu conteúdo com o tema informado para gerar as perguntas.";
-  }
-
   content.push({ type: "text", text: instrucao });
-
-  if (data.pdfBase64) {
-    content.push({
-      type: "file",
-      data: `data:application/pdf;base64,${data.pdfBase64}`,
-      mediaType: "application/pdf",
-    });
-  }
 
   return content;
 }
@@ -70,17 +57,17 @@ function buildContent(data: z.infer<typeof inputSchema>): ContentPart[] {
 export const gerarRoteiroIA = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<RoteiroResult> => {
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      throw new Error("Serviço de IA indisponível: chave não configurada.");
+      throw new Error("Serviço de IA indisponível: chave Groq não configurada.");
     }
 
-    const gateway = createLovableAiGatewayProvider(apiKey);
+    const groq = createGroqProvider(apiKey);
 
     let output: { resumo?: string; perguntas?: RoteiroQuestion[] };
     try {
       const result = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
+        model: groq("llama-3.3-70b-versatile"),
         temperature: 0.7,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: buildContent(data) }],
