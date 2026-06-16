@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { generateText, Output } from "ai";
+import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 const inputSchema = z.object({
   tema: z.string().min(1).max(4000),
@@ -33,8 +35,12 @@ Regras:
 - Use português do Brasil, linguagem clara e técnica.
 - Se o documento não cobrir o tema, gere perguntas de alinhamento geral ONA pertinentes ao tema.`;
 
-function buildParts(data: z.infer<typeof inputSchema>) {
-  const parts: Array<Record<string, unknown>> = [];
+type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "file"; data: string; mediaType: string };
+
+function buildContent(data: z.infer<typeof inputSchema>): ContentPart[] {
+  const content: ContentPart[] = [];
   const quantidade = data.quantidade ?? 7;
 
   let instrucao = `Tema que o líder deseja treinar com a equipe:\n"""${data.tema}"""\n\nGere ${quantidade} perguntas de simulação de auditoria ONA.`;
@@ -48,104 +54,64 @@ function buildParts(data: z.infer<typeof inputSchema>) {
       "\n\nAnalise o PDF anexado e correlacione seu conteúdo com o tema informado para gerar as perguntas.";
   }
 
-  parts.push({ text: instrucao });
+  content.push({ type: "text", text: instrucao });
 
   if (data.pdfBase64) {
-    parts.push({
-      inline_data: {
-        mime_type: "application/pdf",
-        data: data.pdfBase64,
-      },
+    content.push({
+      type: "file",
+      data: `data:application/pdf;base64,${data.pdfBase64}`,
+      mediaType: "application/pdf",
     });
   }
 
-  return parts;
+  return content;
 }
 
 export const gerarRoteiroIA = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }): Promise<RoteiroResult> => {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) {
-      throw new Error("Serviço de IA indisponível: chave Gemini não configurada.");
+      throw new Error("Serviço de IA indisponível: chave não configurada.");
     }
 
-    const body = {
-      systemInstruction: {
-        parts: [{ text: SYSTEM_PROMPT }],
-      },
-      contents: [
-        {
-          role: "user",
-          parts: buildParts(data),
-        },
-      ],
-      generationConfig: {
+    const gateway = createLovableAiGatewayProvider(apiKey);
+
+    let output: { resumo?: string; perguntas?: RoteiroQuestion[] };
+    try {
+      const result = await generateText({
+        model: gateway("google/gemini-3-flash-preview"),
         temperature: 0.7,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            resumo: { type: "string" },
-            perguntas: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  eixo: { type: "string" },
-                  pergunta: { type: "string" },
-                  gabarito: { type: "string" },
-                  diretriz: { type: "string" },
-                },
-                required: ["eixo", "pergunta", "gabarito", "diretriz"],
-              },
-            },
-          },
-          required: ["resumo", "perguntas"],
-        },
-      },
-    };
-
-    const res = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey,
-        },
-        body: JSON.stringify(body),
-      },
-    );
-
-    if (res.status === 429) {
-      throw new Error("Limite de requisições da API Gemini atingido. Aguarde e tente novamente.");
-    }
-    if (res.status === 401 || res.status === 403) {
-      throw new Error("Chave Gemini inválida ou sem permissão. Verifique a chave configurada.");
-    }
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini API error", res.status, errText);
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: buildContent(data) }],
+        output: Output.object({
+          schema: z.object({
+            resumo: z.string(),
+            perguntas: z.array(
+              z.object({
+                eixo: z.string(),
+                pergunta: z.string(),
+                gabarito: z.string(),
+                diretriz: z.string(),
+              }),
+            ),
+          }),
+        }),
+      });
+      output = result.output;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Lovable AI error", msg);
+      if (msg.includes("429")) {
+        throw new Error("Limite de requisições atingido. Aguarde e tente novamente.");
+      }
+      if (msg.includes("402")) {
+        throw new Error("Créditos de IA esgotados. Adicione créditos no workspace.");
+      }
       throw new Error("Não foi possível gerar o roteiro no momento.");
     }
 
-    const json = await res.json();
-    const textOut = json?.candidates?.[0]?.content?.parts
-      ?.map((p: { text?: string }) => p?.text ?? "")
-      .join("");
-    if (!textOut) {
-      throw new Error("Resposta da IA em formato inesperado.");
-    }
-
-    let parsed: { resumo?: string; perguntas?: RoteiroQuestion[] };
-    try {
-      parsed = JSON.parse(textOut);
-    } catch {
-      throw new Error("Falha ao interpretar a resposta da IA.");
-    }
-
-    const perguntas = (parsed.perguntas ?? []).filter(
+    const perguntas = (output.perguntas ?? []).filter(
       (p) => p && p.pergunta && p.gabarito,
     );
     const eixos = Array.from(new Set(perguntas.map((p) => p.eixo).filter(Boolean)));
@@ -153,6 +119,6 @@ export const gerarRoteiroIA = createServerFn({ method: "POST" })
     return {
       perguntas,
       eixos,
-      resumo: parsed.resumo ?? "",
+      resumo: output.resumo ?? "",
     };
   });
