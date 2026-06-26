@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText, Output } from "ai";
-import { createGroqProvider } from "./ai-gateway.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const inputSchema = z
@@ -65,6 +64,7 @@ function mapGroqError(err: unknown): Error {
 async function runGroq(messages: { role: "user" | "assistant"; content: string }[]) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("Serviço de IA indisponível: chave Groq não configurada.");
+  const { createGroqProvider } = await import("./ai-gateway.server");
   const groq = createGroqProvider(apiKey);
   try {
     const result = await generateText({
