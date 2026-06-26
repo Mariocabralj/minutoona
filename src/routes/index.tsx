@@ -111,7 +111,7 @@ function Index() {
     setLendoPdf(true);
     setPdfNome(file.name);
     try {
-      const { extractPdfText } = await import("@/lib/pdf-extract.client");
+      const { extractPdfText } = await import("@/lib/pdf-extract");
       const texto = await extractPdfText(file);
       if (!texto || texto.length < 20) {
         setErro(
