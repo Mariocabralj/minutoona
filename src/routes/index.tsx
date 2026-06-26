@@ -17,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { extractPdfText } from "@/lib/pdf-extract.client";
 import {
   gerarRoteiroIA,
   refinarRoteiroIA,
@@ -112,6 +111,7 @@ function Index() {
     setLendoPdf(true);
     setPdfNome(file.name);
     try {
+      const { extractPdfText } = await import("@/lib/pdf-extract.client");
       const texto = await extractPdfText(file);
       if (!texto || texto.length < 20) {
         setErro(
