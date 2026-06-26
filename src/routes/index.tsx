@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -10,12 +10,18 @@ import {
   Upload,
   Loader2,
   X,
+  Send,
+  Lock,
+  MessagesSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { extractPdfText } from "@/lib/pdf-extract.client";
 import {
   gerarRoteiroIA,
+  refinarRoteiroIA,
+  marcarRoteiroExportado,
   type RoteiroQuestion,
 } from "@/lib/roteiro.functions";
 
@@ -38,6 +44,34 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+function SkeletonRoteiro() {
+  return (
+    <div className="print:hidden">
+      <div className="mb-5 h-7 w-64 animate-pulse rounded-lg bg-muted" />
+      <div className="mb-6 flex items-center gap-2 text-sm font-medium text-primary">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Escrevendo roteiro com IA do Groq...
+      </div>
+      <div className="space-y-4">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-3">
+              <div className="h-7 w-10 animate-pulse rounded-lg bg-muted" />
+              <div className="h-5 w-3/4 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="space-y-2 rounded-xl bg-secondary/50 p-4">
+              <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-full animate-pulse rounded bg-muted" />
+              <div className="h-3 w-5/6 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="mt-3 h-3 w-2/5 animate-pulse rounded bg-muted" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Index() {
   const [assunto, setAssunto] = useState("");
   const [perguntas, setPerguntas] = useState<RoteiroQuestion[] | null>(null);
@@ -47,12 +81,23 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pdfNome, setPdfNome] = useState<string | null>(null);
-  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [pdfTexto, setPdfTexto] = useState<string | null>(null);
+  const [lendoPdf, setLendoPdf] = useState(false);
+  const [logId, setLogId] = useState<string | null>(null);
+
+  const [chatAberto, setChatAberto] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [refinando, setRefinando] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const gerar = useServerFn(gerarRoteiroIA);
+  const refinar = useServerFn(refinarRoteiroIA);
+  const marcarExportado = useServerFn(marcarRoteiroExportado);
 
-  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const podeGerar = (assunto.trim().length > 0 || Boolean(pdfTexto)) && !loading && !lendoPdf;
+
+  async function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.type !== "application/pdf") {
@@ -64,34 +109,46 @@ function Index() {
       return;
     }
     setErro(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(",")[1] ?? "";
-      setPdfBase64(base64);
-      setPdfNome(file.name);
-    };
-    reader.readAsDataURL(file);
+    setLendoPdf(true);
+    setPdfNome(file.name);
+    try {
+      const texto = await extractPdfText(file);
+      if (!texto || texto.length < 20) {
+        setErro(
+          "Não consegui extrair texto deste PDF (pode ser digitalizado/imagem). Tente outro arquivo ou descreva o tema.",
+        );
+        setPdfTexto(null);
+        setPdfNome(null);
+      } else {
+        setPdfTexto(texto);
+      }
+    } catch {
+      setErro("Falha ao ler o PDF. Tente novamente.");
+      setPdfTexto(null);
+      setPdfNome(null);
+    } finally {
+      setLendoPdf(false);
+    }
   }
 
   function removePdf() {
-    setPdfBase64(null);
+    setPdfTexto(null);
     setPdfNome(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleGerar() {
-    if (!assunto.trim()) return;
+    if (!podeGerar) return;
     setLoading(true);
     setErro(null);
+    setPerguntas(null);
+    setChatAberto(false);
     try {
       const r = await gerar({
         data: {
           tema: assunto,
           quantidade,
-          ...(pdfBase64
-            ? { pdfBase64, pdfNome: pdfNome ?? "documento.pdf" }
-            : {}),
+          ...(pdfTexto ? { documentoTexto: pdfTexto, pdfNome: pdfNome ?? "documento.pdf" } : {}),
         },
       });
       if (!r.perguntas.length) {
@@ -101,33 +158,56 @@ function Index() {
       setPerguntas(r.perguntas);
       setEixos(r.eixos);
       setResumo(r.resumo);
+      setLogId(r.logId);
     } catch (err) {
-      setErro(
-        err instanceof Error
-          ? err.message
-          : "Erro ao gerar o roteiro. Tente novamente.",
-      );
+      setErro(err instanceof Error ? err.message : "Erro ao gerar o roteiro. Tente novamente.");
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleRefinar() {
+    if (!feedback.trim() || !perguntas) return;
+    setRefinando(true);
+    setErro(null);
+    try {
+      const r = await refinar({
+        data: {
+          logId,
+          tema: assunto,
+          ...(pdfTexto ? { documentoTexto: pdfTexto } : {}),
+          roteiroAtual: perguntas,
+          feedback: feedback.trim(),
+        },
+      });
+      if (r.perguntas.length) {
+        setPerguntas(r.perguntas);
+        setEixos(r.eixos);
+        setResumo(r.resumo);
+        setFeedback("");
+        setChatAberto(false);
+      }
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao refinar o roteiro.");
+    } finally {
+      setRefinando(false);
+    }
+  }
+
   function handlePrint() {
+    if (logId) marcarExportado({ data: { logId } }).catch(() => {});
     window.print();
   }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header institucional */}
       <header className="print:hidden border-b border-border bg-primary text-primary-foreground shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-5 sm:px-6">
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
             <Activity className="h-6 w-6" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">
-              Minuto ONA
-            </h1>
+            <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">Minuto ONA</h1>
             <p className="truncate text-xs font-medium text-primary-foreground/70 sm:text-sm">
               Simulador de Auditoria ONA — Módulo do Entrevistador
             </p>
@@ -142,12 +222,11 @@ function Index() {
             <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
                 <Sparkles className="h-5 w-5 text-primary" />
-                <h2 className="text-base font-bold text-foreground">
-                  Configuração do Líder
-                </h2>
+                <h2 className="text-base font-bold text-foreground">Configuração do Líder</h2>
               </div>
               <label className="mb-2 block text-sm font-semibold text-foreground">
-                O que você deseja treinar com a equipe?
+                O que você deseja treinar com a equipe?{" "}
+                <span className="font-normal text-muted-foreground">(opcional se anexar PDF)</span>
               </label>
               <Textarea
                 value={assunto}
@@ -156,10 +235,9 @@ function Index() {
                 className="min-h-44 resize-y rounded-xl text-sm"
               />
 
-              {/* Upload de PDF */}
               <div className="mt-4">
                 <label className="mb-2 block text-sm font-semibold text-foreground">
-                  Documento institucional (PDF) — opcional
+                  Documento institucional (PDF)
                 </label>
                 <input
                   ref={fileInputRef}
@@ -171,7 +249,11 @@ function Index() {
                 {pdfNome ? (
                   <div className="flex items-center justify-between gap-2 rounded-xl border border-border bg-secondary/50 px-3 py-2.5">
                     <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
-                      <FileText className="h-4 w-4 shrink-0 text-primary" />
+                      {lendoPdf ? (
+                        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                      ) : (
+                        <FileText className="h-4 w-4 shrink-0 text-primary" />
+                      )}
                       <span className="truncate">{pdfNome}</span>
                     </span>
                     <button
@@ -195,7 +277,6 @@ function Index() {
                 )}
               </div>
 
-              {/* Quantidade de perguntas */}
               <div className="mt-4">
                 <label className="mb-2 block text-sm font-semibold text-foreground">
                   Quantidade de perguntas: {quantidade}
@@ -212,7 +293,7 @@ function Index() {
 
               <Button
                 onClick={handleGerar}
-                disabled={!assunto.trim() || loading}
+                disabled={!podeGerar}
                 className="mt-5 w-full rounded-xl py-6 text-sm font-bold"
               >
                 {loading ? (
@@ -235,58 +316,65 @@ function Index() {
               )}
 
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                A IA lê o PDF anexado e correlaciona o conteúdo com o tema escolhido,
-                gerando perguntas, gabaritos e diretrizes ONA personalizadas.
+                A IA lê o PDF anexado e correlaciona o conteúdo com o tema escolhido, gerando
+                perguntas, gabaritos e diretrizes ONA personalizadas. Você pode gerar apenas a partir
+                do PDF, sem digitar nada.
               </p>
+
+              <Link
+                to="/auth"
+                className="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2.5 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-primary"
+              >
+                <Lock className="h-3.5 w-3.5" />
+                Área Administrativa
+              </Link>
             </div>
           </section>
 
           {/* Painel de Exibição do Roteiro */}
-          <section>
-            {!perguntas ? (
-              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 px-6 py-16 text-center">
+          <section className="relative">
+            {loading ? (
+              <SkeletonRoteiro />
+            ) : !perguntas ? (
+              <div className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card/50 px-6 py-16 text-center print:hidden">
                 <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-secondary text-primary">
                   <FileText className="h-7 w-7" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground">
-                  Seu roteiro aparecerá aqui
-                </h3>
+                <h3 className="text-lg font-bold text-foreground">Seu roteiro aparecerá aqui</h3>
                 <p className="mt-2 max-w-md text-sm text-muted-foreground">
-                  Descreva o tema da rotina ou cole o documento institucional no painel ao
-                  lado e clique em <span className="font-semibold text-foreground">Gerar Roteiro</span> para
+                  Descreva o tema da rotina ou anexe o documento institucional no painel ao lado e
+                  clique em <span className="font-semibold text-foreground">Gerar Roteiro</span> para
                   criar perguntas de auditoria ONA prontas para aplicar à equipe.
                 </p>
               </div>
             ) : (
               <div>
-                {/* Cabeçalho do roteiro */}
-                <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between print:mb-3">
-                  <div className="min-w-0">
-                    <div className="hidden print:block">
-                      <p className="text-sm font-bold text-primary">Minuto ONA</p>
-                    </div>
-                    <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
-                      Roteiro de Auditoria ONA
-                    </h2>
-                    {resumo && (
-                      <p className="mt-1 text-sm text-muted-foreground">{resumo}</p>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {eixos.map((e) => (
-                        <Badge key={e} variant="secondary" className="font-medium">
-                          {e}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+                {/* Botão Exportar fixo no topo do painel */}
+                <div className="sticky top-0 z-10 -mx-1 mb-4 flex justify-end px-1 py-2 print:hidden">
                   <Button
                     onClick={handlePrint}
-                    variant="outline"
-                    className="print:hidden shrink-0 rounded-xl border-primary/30 font-semibold text-primary hover:bg-secondary"
+                    className="rounded-xl font-bold shadow-md"
                   >
                     <Printer className="h-4 w-4" />
                     Exportar PDF
                   </Button>
+                </div>
+
+                <div className="mb-5 print:mb-3">
+                  <div className="hidden print:block">
+                    <p className="text-sm font-bold text-primary">Minuto ONA</p>
+                  </div>
+                  <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+                    Roteiro de Auditoria ONA
+                  </h2>
+                  {resumo && <p className="mt-1 text-sm text-muted-foreground">{resumo}</p>}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {eixos.map((e) => (
+                      <Badge key={e} variant="secondary" className="font-medium">
+                        {e}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -308,9 +396,7 @@ function Index() {
                         <p className="mb-1 text-xs font-bold uppercase tracking-wide text-emerald-700">
                           Resposta Esperada / Gabarito Institucional
                         </p>
-                        <p className="text-sm leading-relaxed text-foreground">
-                          {q.gabarito}
-                        </p>
+                        <p className="text-sm leading-relaxed text-foreground">{q.gabarito}</p>
                       </div>
 
                       <p className="mt-3 text-xs font-medium text-muted-foreground">
@@ -321,7 +407,64 @@ function Index() {
                   ))}
                 </div>
 
-                {/* Rodapé técnico (apenas impressão) */}
+                {/* Refinamento por chat */}
+                <div className="mt-6 print:hidden">
+                  {!chatAberto ? (
+                    <Button
+                      onClick={() => setChatAberto(true)}
+                      variant="outline"
+                      className="w-full rounded-xl border-primary/30 py-5 font-bold text-primary hover:bg-secondary"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Refinar Roteiro com IA
+                    </Button>
+                  ) : (
+                    <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-sm">
+                      <div className="mb-3 flex items-center gap-2">
+                        <MessagesSquare className="h-5 w-5 text-primary" />
+                        <h3 className="text-sm font-bold text-foreground">
+                          Ajustar com a IA do Groq
+                        </h3>
+                      </div>
+                      <Textarea
+                        value={feedback}
+                        onChange={(e) => setFeedback(e.target.value)}
+                        placeholder="Diga à IA o que ajustar (Ex: 'Simplifique a pergunta 3', 'Foque mais na rotina do plantão noturno do HPS' ou 'Adapte para a equipe de enfermagem')."
+                        className="min-h-28 resize-y rounded-xl text-sm"
+                      />
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          onClick={handleRefinar}
+                          disabled={!feedback.trim() || refinando}
+                          className="flex-1 rounded-xl font-bold"
+                        >
+                          {refinando ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Refinando...
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-4 w-4" />
+                              Enviar ajuste
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setChatAberto(false);
+                            setFeedback("");
+                          }}
+                          className="rounded-xl"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <footer className="mt-8 hidden border-t border-border pt-3 text-center text-xs text-muted-foreground print:block">
                   Fundação Gestão Hospitalar (FGH) — Documento gerado pelo Minuto ONA.
                 </footer>
