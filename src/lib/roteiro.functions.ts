@@ -68,7 +68,7 @@ async function runGroq(messages: { role: "user" | "assistant"; content: string }
   const groq = createGroqProvider(apiKey);
   try {
     const result = await generateText({
-      model: groq("llama-3.3-70b-versatile"),
+      model: groq("openai/gpt-oss-120b"),
       temperature: 0.7,
       system: SYSTEM_PROMPT,
       messages,
