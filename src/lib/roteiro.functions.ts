@@ -61,6 +61,17 @@ function mapGroqError(err: unknown): Error {
   return new Error("Não foi possível gerar o roteiro no momento.");
 }
 
+function parseJsonOutput(text: string): z.infer<typeof outputSchema> {
+  const cleaned = text
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/g, "")
+    .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  const slice = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+  return outputSchema.parse(JSON.parse(slice));
+}
+
 async function runGroq(messages: { role: "user" | "assistant"; content: string }[]) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("Serviço de IA indisponível: chave Groq não configurada.");
@@ -70,11 +81,12 @@ async function runGroq(messages: { role: "user" | "assistant"; content: string }
     const result = await generateText({
       model: groq("openai/gpt-oss-120b"),
       temperature: 0.7,
-      system: SYSTEM_PROMPT,
+      system:
+        SYSTEM_PROMPT +
+        `\n\nIMPORTANTE: responda APENAS com um objeto JSON válido, sem texto antes ou depois, exatamente no formato: {"resumo": "...", "perguntas": [{"eixo": "...", "pergunta": "...", "gabarito": "...", "diretriz": "..."}]}`,
       messages,
-      output: Output.object({ schema: outputSchema }),
     });
-    return result.output as z.infer<typeof outputSchema>;
+    return parseJsonOutput(result.text);
   } catch (err) {
     throw mapGroqError(err);
   }
