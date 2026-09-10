@@ -248,6 +248,10 @@ export interface DashboardLog {
   eixos: string[];
   refinamentos: number;
   exportado_pdf: boolean;
+  gestor_nome: string | null;
+  gestor_matricula: string | null;
+  gestor_setor: string | null;
+  checkin_em: string | null;
 }
 
 export interface DashboardData {
@@ -273,7 +277,9 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
 
     const { data: logs, error } = await supabase
       .from("roteiro_logs")
-      .select("id, created_at, tema, quantidade, tem_pdf, pdf_nome, eixos, refinamentos, exportado_pdf")
+      .select(
+        "id, created_at, tema, quantidade, tem_pdf, pdf_nome, eixos, refinamentos, exportado_pdf, gestor_nome, gestor_matricula, gestor_setor, checkin_em",
+      )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
