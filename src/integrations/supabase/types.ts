@@ -16,9 +16,13 @@ export type Database = {
     Tables: {
       roteiro_logs: {
         Row: {
+          checkin_em: string | null
           created_at: string
           eixos: string[]
           exportado_pdf: boolean
+          gestor_matricula: string | null
+          gestor_nome: string | null
+          gestor_setor: string | null
           historico: Json
           id: string
           pdf_nome: string | null
@@ -28,9 +32,13 @@ export type Database = {
           tema: string
         }
         Insert: {
+          checkin_em?: string | null
           created_at?: string
           eixos?: string[]
           exportado_pdf?: boolean
+          gestor_matricula?: string | null
+          gestor_nome?: string | null
+          gestor_setor?: string | null
           historico?: Json
           id?: string
           pdf_nome?: string | null
@@ -40,9 +48,13 @@ export type Database = {
           tema?: string
         }
         Update: {
+          checkin_em?: string | null
           created_at?: string
           eixos?: string[]
           exportado_pdf?: boolean
+          gestor_matricula?: string | null
+          gestor_nome?: string | null
+          gestor_setor?: string | null
           historico?: Json
           id?: string
           pdf_nome?: string | null
