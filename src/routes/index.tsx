@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import hpsLogo from "@/assets/hps-logomarca.png.asset.json";
 import {
-  Activity,
   FileText,
   Printer,
   Sparkles,
