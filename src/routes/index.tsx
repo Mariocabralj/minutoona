@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import hpsLogo from "@/assets/hps-logomarca.png.asset.json";
 import {
@@ -13,8 +13,11 @@ import {
   Send,
   Lock,
   MessagesSquare,
+  UserCheck,
+  BadgeCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +26,15 @@ import {
   marcarRoteiroExportado,
   type RoteiroQuestion,
 } from "@/lib/roteiro.functions";
+
+const CHECKIN_KEY = "minutoona.checkin";
+
+interface Gestor {
+  nome: string;
+  matricula: string;
+  setor: string;
+}
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -84,6 +96,10 @@ function Index() {
   const [lendoPdf, setLendoPdf] = useState(false);
   const [logId, setLogId] = useState<string | null>(null);
 
+  const [gestor, setGestor] = useState<Gestor | null>(null);
+  const [checkinAberto, setCheckinAberto] = useState(false);
+  const [form, setForm] = useState<Gestor>({ nome: "", matricula: "", setor: "" });
+
   const [chatAberto, setChatAberto] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [refinando, setRefinando] = useState(false);
@@ -94,7 +110,45 @@ function Index() {
   const refinar = useServerFn(refinarRoteiroIA);
   const marcarExportado = useServerFn(marcarRoteiroExportado);
 
-  const podeGerar = (assunto.trim().length > 0 || Boolean(pdfTexto)) && !loading && !lendoPdf;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CHECKIN_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Gestor;
+        if (parsed?.nome && parsed?.matricula && parsed?.setor) {
+          setGestor(parsed);
+          setForm(parsed);
+          return;
+        }
+      }
+    } catch {
+      /* ignora */
+    }
+    setCheckinAberto(true);
+  }, []);
+
+  const formValido =
+    form.nome.trim().length >= 2 && form.matricula.trim().length >= 1 && form.setor.trim().length >= 2;
+
+  function confirmarCheckin() {
+    if (!formValido) return;
+    const limpo: Gestor = {
+      nome: form.nome.trim(),
+      matricula: form.matricula.trim(),
+      setor: form.setor.trim(),
+    };
+    setGestor(limpo);
+    try {
+      localStorage.setItem(CHECKIN_KEY, JSON.stringify(limpo));
+    } catch {
+      /* ignora */
+    }
+    setCheckinAberto(false);
+  }
+
+  const podeGerar =
+    Boolean(gestor) && (assunto.trim().length > 0 || Boolean(pdfTexto)) && !loading && !lendoPdf;
+
 
   async function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -138,6 +192,11 @@ function Index() {
   }
 
   async function handleGerar() {
+    if (!gestor) {
+      setCheckinAberto(true);
+      setErro("Faça o check-in com nome, matrícula e setor antes de gerar o roteiro.");
+      return;
+    }
     if (!podeGerar) return;
     setLoading(true);
     setErro(null);
@@ -148,6 +207,7 @@ function Index() {
         data: {
           tema: assunto,
           quantidade,
+          gestor,
           ...(pdfTexto ? { documentoTexto: pdfTexto, pdfNome: pdfNome ?? "documento.pdf" } : {}),
         },
       });
@@ -228,6 +288,40 @@ function Index() {
                 <Sparkles className="h-5 w-5 text-primary" />
                 <h2 className="text-base font-bold text-foreground">Configuração do Líder</h2>
               </div>
+
+              {/* Check-in do gestor */}
+              {gestor ? (
+                <div className="mb-4 flex items-start justify-between gap-2 rounded-xl border border-primary/25 bg-secondary/50 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
+                      <BadgeCheck className="h-3.5 w-3.5" />
+                      Check-in realizado
+                    </p>
+                    <p className="mt-1 truncate text-sm font-semibold text-foreground">{gestor.nome}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      Matrícula {gestor.matricula} · {gestor.setor}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCheckinAberto(true)}
+                    className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-primary hover:bg-background"
+                  >
+                    Alterar
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCheckinAberto(true)}
+                  className="mb-4 w-full rounded-xl border-primary/40 py-5 font-bold text-primary hover:bg-secondary"
+                >
+                  <UserCheck className="h-4 w-4" />
+                  Fazer Check-in
+                </Button>
+              )}
+
               <label className="mb-2 block text-sm font-semibold text-foreground">
                 O que você deseja treinar com a equipe?{" "}
                 <span className="font-normal text-muted-foreground">(opcional se anexar PDF)</span>
@@ -477,6 +571,77 @@ function Index() {
           </section>
         </div>
       </main>
+
+      {checkinAberto && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 print:hidden">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <div className="mb-1 flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground">Check-in do Gestor</h2>
+            </div>
+            <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+              Identifique-se para registrar o acesso. Estes dados ficam vinculados a cada roteiro
+              gerado e são visíveis para a gestão.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">
+                  Nome completo
+                </label>
+                <Input
+                  value={form.nome}
+                  onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                  placeholder="Ex.: Maria Souza"
+                  className="rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Matrícula</label>
+                <Input
+                  value={form.matricula}
+                  onChange={(e) => setForm((f) => ({ ...f, matricula: e.target.value }))}
+                  placeholder="Ex.: 123456"
+                  className="rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Setor</label>
+                <Input
+                  value={form.setor}
+                  onChange={(e) => setForm((f) => ({ ...f, setor: e.target.value }))}
+                  placeholder="Ex.: UTI Adulto"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                onClick={confirmarCheckin}
+                disabled={!formValido}
+                className="flex-1 rounded-xl py-5 font-bold"
+              >
+                <BadgeCheck className="h-4 w-4" />
+                Confirmar Check-in
+              </Button>
+              {gestor && (
+                <Button
+                  variant="ghost"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setForm(gestor);
+                    setCheckinAberto(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }

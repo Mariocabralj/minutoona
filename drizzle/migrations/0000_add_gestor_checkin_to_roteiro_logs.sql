@@ -1,0 +1,5 @@
+ALTER TABLE public.roteiro_logs
+  ADD COLUMN IF NOT EXISTS gestor_nome TEXT,
+  ADD COLUMN IF NOT EXISTS gestor_matricula TEXT,
+  ADD COLUMN IF NOT EXISTS gestor_setor TEXT,
+  ADD COLUMN IF NOT EXISTS checkin_em TIMESTAMPTZ;

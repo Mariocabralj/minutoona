@@ -3,17 +3,25 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const gestorSchema = z.object({
+  nome: z.string().min(2).max(120),
+  matricula: z.string().min(1).max(40),
+  setor: z.string().min(2).max(120),
+});
+
 const inputSchema = z
   .object({
     tema: z.string().max(4000).optional().default(""),
     documentoTexto: z.string().max(200000).optional(),
     pdfNome: z.string().optional(),
     quantidade: z.number().int().min(3).max(10).optional(),
+    gestor: gestorSchema,
   })
   .refine(
     (d) => (d.tema && d.tema.trim().length > 0) || (d.documentoTexto && d.documentoTexto.trim().length > 0),
     { message: "Informe um tema ou anexe um documento." },
   );
+
 
 export interface RoteiroQuestion {
   eixo: string;
@@ -127,6 +135,10 @@ export const gerarRoteiroIA = createServerFn({ method: "POST" })
           tem_pdf: Boolean(data.documentoTexto && data.documentoTexto.trim()),
           pdf_nome: data.pdfNome ?? null,
           eixos: result.eixos,
+          gestor_nome: data.gestor.nome.trim(),
+          gestor_matricula: data.gestor.matricula.trim(),
+          gestor_setor: data.gestor.setor.trim(),
+          checkin_em: new Date().toISOString(),
           historico: [{ tipo: "geracao", em: new Date().toISOString(), resumo: result.resumo }],
         })
         .select("id")
@@ -236,6 +248,10 @@ export interface DashboardLog {
   eixos: string[];
   refinamentos: number;
   exportado_pdf: boolean;
+  gestor_nome: string | null;
+  gestor_matricula: string | null;
+  gestor_setor: string | null;
+  checkin_em: string | null;
 }
 
 export interface DashboardData {
@@ -261,7 +277,9 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
 
     const { data: logs, error } = await supabase
       .from("roteiro_logs")
-      .select("id, created_at, tema, quantidade, tem_pdf, pdf_nome, eixos, refinamentos, exportado_pdf")
+      .select(
+        "id, created_at, tema, quantidade, tem_pdf, pdf_nome, eixos, refinamentos, exportado_pdf, gestor_nome, gestor_matricula, gestor_setor, checkin_em",
+      )
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
