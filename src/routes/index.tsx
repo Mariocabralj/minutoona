@@ -571,6 +571,77 @@ function Index() {
           </section>
         </div>
       </main>
+
+      {checkinAberto && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-foreground/40 p-4 print:hidden">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+            <div className="mb-1 flex items-center gap-2">
+              <UserCheck className="h-5 w-5 text-primary" />
+              <h2 className="text-base font-bold text-foreground">Check-in do Gestor</h2>
+            </div>
+            <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+              Identifique-se para registrar o acesso. Estes dados ficam vinculados a cada roteiro
+              gerado e são visíveis para a gestão.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">
+                  Nome completo
+                </label>
+                <Input
+                  value={form.nome}
+                  onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                  placeholder="Ex.: Maria Souza"
+                  className="rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Matrícula</label>
+                <Input
+                  value={form.matricula}
+                  onChange={(e) => setForm((f) => ({ ...f, matricula: e.target.value }))}
+                  placeholder="Ex.: 123456"
+                  className="rounded-xl"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-semibold text-foreground">Setor</label>
+                <Input
+                  value={form.setor}
+                  onChange={(e) => setForm((f) => ({ ...f, setor: e.target.value }))}
+                  placeholder="Ex.: UTI Adulto"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                onClick={confirmarCheckin}
+                disabled={!formValido}
+                className="flex-1 rounded-xl py-5 font-bold"
+              >
+                <BadgeCheck className="h-4 w-4" />
+                Confirmar Check-in
+              </Button>
+              {gestor && (
+                <Button
+                  variant="ghost"
+                  className="rounded-xl"
+                  onClick={() => {
+                    setForm(gestor);
+                    setCheckinAberto(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
