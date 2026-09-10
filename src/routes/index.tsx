@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import hpsLogo from "@/assets/hps-logomarca.png.asset.json";
 import {
@@ -13,8 +13,11 @@ import {
   Send,
   Lock,
   MessagesSquare,
+  UserCheck,
+  BadgeCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,6 +26,15 @@ import {
   marcarRoteiroExportado,
   type RoteiroQuestion,
 } from "@/lib/roteiro.functions";
+
+const CHECKIN_KEY = "minutoona.checkin";
+
+interface Gestor {
+  nome: string;
+  matricula: string;
+  setor: string;
+}
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -84,6 +96,10 @@ function Index() {
   const [lendoPdf, setLendoPdf] = useState(false);
   const [logId, setLogId] = useState<string | null>(null);
 
+  const [gestor, setGestor] = useState<Gestor | null>(null);
+  const [checkinAberto, setCheckinAberto] = useState(false);
+  const [form, setForm] = useState<Gestor>({ nome: "", matricula: "", setor: "" });
+
   const [chatAberto, setChatAberto] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [refinando, setRefinando] = useState(false);
@@ -94,7 +110,45 @@ function Index() {
   const refinar = useServerFn(refinarRoteiroIA);
   const marcarExportado = useServerFn(marcarRoteiroExportado);
 
-  const podeGerar = (assunto.trim().length > 0 || Boolean(pdfTexto)) && !loading && !lendoPdf;
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CHECKIN_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Gestor;
+        if (parsed?.nome && parsed?.matricula && parsed?.setor) {
+          setGestor(parsed);
+          setForm(parsed);
+          return;
+        }
+      }
+    } catch {
+      /* ignora */
+    }
+    setCheckinAberto(true);
+  }, []);
+
+  const formValido =
+    form.nome.trim().length >= 2 && form.matricula.trim().length >= 1 && form.setor.trim().length >= 2;
+
+  function confirmarCheckin() {
+    if (!formValido) return;
+    const limpo: Gestor = {
+      nome: form.nome.trim(),
+      matricula: form.matricula.trim(),
+      setor: form.setor.trim(),
+    };
+    setGestor(limpo);
+    try {
+      localStorage.setItem(CHECKIN_KEY, JSON.stringify(limpo));
+    } catch {
+      /* ignora */
+    }
+    setCheckinAberto(false);
+  }
+
+  const podeGerar =
+    Boolean(gestor) && (assunto.trim().length > 0 || Boolean(pdfTexto)) && !loading && !lendoPdf;
+
 
   async function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
