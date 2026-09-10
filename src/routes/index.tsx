@@ -203,8 +203,12 @@ function Index() {
     <div className="min-h-screen bg-background">
       <header className="print:hidden border-b border-border bg-primary text-primary-foreground shadow-sm">
         <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-5 sm:px-6">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
-            <Activity className="h-6 w-6" />
+          <div className="grid h-12 shrink-0 place-items-center rounded-xl bg-primary-foreground/10 px-2.5 ring-1 ring-primary-foreground/20">
+            <img
+              src={hpsLogo.url}
+              alt="Logomarca do Hospital Pelópidas Silveira"
+              className="h-9 w-auto object-contain"
+            />
           </div>
           <div className="min-w-0">
             <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">Minuto ONA</h1>
