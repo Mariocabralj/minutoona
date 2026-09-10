@@ -3,17 +3,25 @@ import { z } from "zod";
 import { generateText } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const gestorSchema = z.object({
+  nome: z.string().min(2).max(120),
+  matricula: z.string().min(1).max(40),
+  setor: z.string().min(2).max(120),
+});
+
 const inputSchema = z
   .object({
     tema: z.string().max(4000).optional().default(""),
     documentoTexto: z.string().max(200000).optional(),
     pdfNome: z.string().optional(),
     quantidade: z.number().int().min(3).max(10).optional(),
+    gestor: gestorSchema,
   })
   .refine(
     (d) => (d.tema && d.tema.trim().length > 0) || (d.documentoTexto && d.documentoTexto.trim().length > 0),
     { message: "Informe um tema ou anexe um documento." },
   );
+
 
 export interface RoteiroQuestion {
   eixo: string;
