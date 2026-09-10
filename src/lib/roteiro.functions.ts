@@ -135,6 +135,10 @@ export const gerarRoteiroIA = createServerFn({ method: "POST" })
           tem_pdf: Boolean(data.documentoTexto && data.documentoTexto.trim()),
           pdf_nome: data.pdfNome ?? null,
           eixos: result.eixos,
+          gestor_nome: data.gestor.nome.trim(),
+          gestor_matricula: data.gestor.matricula.trim(),
+          gestor_setor: data.gestor.setor.trim(),
+          checkin_em: new Date().toISOString(),
           historico: [{ tipo: "geracao", em: new Date().toISOString(), resumo: result.resumo }],
         })
         .select("id")
