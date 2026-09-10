@@ -164,6 +164,9 @@ function Dashboard() {
                   <thead>
                     <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
                       <th className="py-2 pr-4 font-semibold">Data/Hora</th>
+                      <th className="py-2 pr-4 font-semibold">Gestor (check-in)</th>
+                      <th className="py-2 pr-4 font-semibold">Matrícula</th>
+                      <th className="py-2 pr-4 font-semibold">Setor</th>
                       <th className="py-2 pr-4 font-semibold">Tema</th>
                       <th className="py-2 pr-4 font-semibold">Perguntas</th>
                       <th className="py-2 pr-4 font-semibold">Refin.</th>
@@ -173,7 +176,7 @@ function Dashboard() {
                   <tbody>
                     {data.logs.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                        <td colSpan={8} className="py-6 text-center text-muted-foreground">
                           Nenhum roteiro registrado ainda.
                         </td>
                       </tr>
@@ -183,13 +186,20 @@ function Dashboard() {
                         <td className="py-2.5 pr-4 text-muted-foreground">
                           {new Date(log.created_at).toLocaleString("pt-BR")}
                         </td>
+                        <td className="py-2.5 pr-4 font-semibold text-foreground">
+                          {log.gestor_nome ?? "—"}
+                        </td>
+                        <td className="py-2.5 pr-4 text-muted-foreground">
+                          {log.gestor_matricula ?? "—"}
+                        </td>
+                        <td className="py-2.5 pr-4 text-muted-foreground">{log.gestor_setor ?? "—"}</td>
                         <td className="py-2.5 pr-4 font-medium text-foreground">{log.tema}</td>
                         <td className="py-2.5 pr-4">{log.quantidade}</td>
                         <td className="py-2.5 pr-4">{log.refinamentos}</td>
                         <td className="py-2.5 pr-4">
                           {log.tem_pdf ? (
                             <span className="inline-flex items-center gap-1 text-primary">
-                              <Paperclip className="h-3.5 w-3.5" /> Sim
+                              <Paperclip className="h-3.5 w-3.5" /> {log.pdf_nome ?? "Sim"}
                             </span>
                           ) : (
                             <span className="text-muted-foreground">Não</span>
