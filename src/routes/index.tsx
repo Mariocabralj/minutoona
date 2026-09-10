@@ -192,6 +192,11 @@ function Index() {
   }
 
   async function handleGerar() {
+    if (!gestor) {
+      setCheckinAberto(true);
+      setErro("Faça o check-in com nome, matrícula e setor antes de gerar o roteiro.");
+      return;
+    }
     if (!podeGerar) return;
     setLoading(true);
     setErro(null);
@@ -202,6 +207,7 @@ function Index() {
         data: {
           tema: assunto,
           quantidade,
+          gestor,
           ...(pdfTexto ? { documentoTexto: pdfTexto, pdfNome: pdfNome ?? "documento.pdf" } : {}),
         },
       });
