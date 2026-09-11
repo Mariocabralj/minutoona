@@ -597,6 +597,13 @@ function Index() {
                   )}
                 </div>
 
+                <PodcastPlayer
+                  segments={podcast}
+                  gerando={gerandoPodcast}
+                  erro={erroPodcast}
+                  onGerar={handleGerarPodcast}
+                />
+
                 <footer className="mt-8 hidden border-t border-border pt-3 text-center text-xs text-muted-foreground print:block">
                   Fundação Gestão Hospitalar (FGH) — Documento gerado pelo Minuto ONA.
                 </footer>
