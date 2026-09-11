@@ -9,6 +9,8 @@ import {
   Loader2,
   Paperclip,
   Layers,
+  Download,
+  UserCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getAdminDashboard, type DashboardData } from "@/lib/roteiro.functions";
