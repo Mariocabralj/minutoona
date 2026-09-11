@@ -226,6 +226,8 @@ function Index() {
       setEixos(r.eixos);
       setResumo(r.resumo);
       setLogId(r.logId);
+      setPodcast(null);
+      setErroPodcast(null);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao gerar o roteiro. Tente novamente.");
     } finally {
