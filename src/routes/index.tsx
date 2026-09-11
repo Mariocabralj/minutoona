@@ -255,6 +255,8 @@ function Index() {
         setResumo(r.resumo);
         setFeedback("");
         setChatAberto(false);
+        setPodcast(null);
+        setErroPodcast(null);
       }
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao refinar o roteiro.");
@@ -262,6 +264,29 @@ function Index() {
       setRefinando(false);
     }
   }
+
+  async function handleGerarPodcast() {
+    if (!perguntas) return;
+    setGerandoPodcast(true);
+    setErroPodcast(null);
+    try {
+      const r = await gerarPodcast({
+        data: { logId, tema: assunto, resumo, eixos, perguntas },
+      });
+      if (!r.segments.length) {
+        setErroPodcast("Não foi possível preparar o áudio. Tente novamente.");
+        return;
+      }
+      setPodcast(r.segments);
+    } catch (err) {
+      setErroPodcast(
+        err instanceof Error ? err.message : "Não foi possível preparar o áudio agora.",
+      );
+    } finally {
+      setGerandoPodcast(false);
+    }
+  }
+
 
   function handlePrint() {
     if (logId) marcarExportado({ data: { logId } }).catch(() => {});
