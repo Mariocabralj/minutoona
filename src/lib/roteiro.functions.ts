@@ -305,6 +305,6 @@ export const getAdminDashboard = createServerFn({ method: "GET" })
       totalExportados,
       taxaRefinamento,
       temas,
-      logs: rows.slice(0, 50),
+      logs: rows,
     };
   });
