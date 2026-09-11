@@ -26,6 +26,8 @@ import {
   marcarRoteiroExportado,
   type RoteiroQuestion,
 } from "@/lib/roteiro.functions";
+import { gerarPodcastRoteiro, type PodcastSegment } from "@/lib/podcast.functions";
+import { PodcastPlayer } from "@/components/PodcastPlayer";
 
 const CHECKIN_KEY = "minutoona.checkin";
 
