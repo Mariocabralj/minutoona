@@ -108,6 +108,33 @@ function Dashboard() {
 
   const maxTema = data?.temas.reduce((m, t) => Math.max(m, t.total), 0) ?? 0;
 
+  const checkins = (() => {
+    const map = new Map<
+      string,
+      { chave: string; nome: string; matricula: string; setor: string; total: number; ultimo: string }
+    >();
+    for (const l of data?.logs ?? []) {
+      if (!l.gestor_nome) continue;
+      const chave = `${l.gestor_matricula ?? ""}|${l.gestor_nome}`;
+      const atual = map.get(chave);
+      const quando = l.checkin_em ?? l.created_at;
+      if (atual) {
+        atual.total += 1;
+        if (quando > atual.ultimo) atual.ultimo = quando;
+      } else {
+        map.set(chave, {
+          chave,
+          nome: l.gestor_nome,
+          matricula: l.gestor_matricula ?? "—",
+          setor: l.gestor_setor ?? "—",
+          total: 1,
+          ultimo: quando,
+        });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => (a.ultimo < b.ultimo ? 1 : -1));
+  })();
+
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b border-border bg-primary text-primary-foreground">
