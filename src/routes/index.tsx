@@ -26,6 +26,8 @@ import {
   marcarRoteiroExportado,
   type RoteiroQuestion,
 } from "@/lib/roteiro.functions";
+import { gerarPodcastRoteiro, type PodcastSegment } from "@/lib/podcast.functions";
+import { PodcastPlayer } from "@/components/PodcastPlayer";
 
 const CHECKIN_KEY = "minutoona.checkin";
 
@@ -104,11 +106,16 @@ function Index() {
   const [feedback, setFeedback] = useState("");
   const [refinando, setRefinando] = useState(false);
 
+  const [podcast, setPodcast] = useState<PodcastSegment[] | null>(null);
+  const [gerandoPodcast, setGerandoPodcast] = useState(false);
+  const [erroPodcast, setErroPodcast] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const gerar = useServerFn(gerarRoteiroIA);
   const refinar = useServerFn(refinarRoteiroIA);
   const marcarExportado = useServerFn(marcarRoteiroExportado);
+  const gerarPodcast = useServerFn(gerarPodcastRoteiro);
 
   useEffect(() => {
     try {
@@ -219,6 +226,8 @@ function Index() {
       setEixos(r.eixos);
       setResumo(r.resumo);
       setLogId(r.logId);
+      setPodcast(null);
+      setErroPodcast(null);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao gerar o roteiro. Tente novamente.");
     } finally {
@@ -246,6 +255,8 @@ function Index() {
         setResumo(r.resumo);
         setFeedback("");
         setChatAberto(false);
+        setPodcast(null);
+        setErroPodcast(null);
       }
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao refinar o roteiro.");
@@ -253,6 +264,29 @@ function Index() {
       setRefinando(false);
     }
   }
+
+  async function handleGerarPodcast() {
+    if (!perguntas) return;
+    setGerandoPodcast(true);
+    setErroPodcast(null);
+    try {
+      const r = await gerarPodcast({
+        data: { logId, tema: assunto, resumo, eixos, perguntas },
+      });
+      if (!r.segments.length) {
+        setErroPodcast("Não foi possível preparar o áudio. Tente novamente.");
+        return;
+      }
+      setPodcast(r.segments);
+    } catch (err) {
+      setErroPodcast(
+        err instanceof Error ? err.message : "Não foi possível preparar o áudio agora.",
+      );
+    } finally {
+      setGerandoPodcast(false);
+    }
+  }
+
 
   function handlePrint() {
     if (logId) marcarExportado({ data: { logId } }).catch(() => {});
@@ -562,6 +596,13 @@ function Index() {
                     </div>
                   )}
                 </div>
+
+                <PodcastPlayer
+                  segments={podcast}
+                  gerando={gerandoPodcast}
+                  erro={erroPodcast}
+                  onGerar={handleGerarPodcast}
+                />
 
                 <footer className="mt-8 hidden border-t border-border pt-3 text-center text-xs text-muted-foreground print:block">
                   Fundação Gestão Hospitalar (FGH) — Documento gerado pelo Minuto ONA.
