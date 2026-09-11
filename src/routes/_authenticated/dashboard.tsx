@@ -293,7 +293,7 @@ function Dashboard() {
                         </td>
                       </tr>
                     )}
-                    {data.logs.map((log) => (
+                    {data.logs.slice(0, 50).map((log) => (
                       <tr key={log.id} className="border-b border-border/60">
                         <td className="py-2.5 pr-4 text-muted-foreground">
                           {new Date(log.created_at).toLocaleString("pt-BR")}
