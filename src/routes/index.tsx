@@ -106,6 +106,10 @@ function Index() {
   const [feedback, setFeedback] = useState("");
   const [refinando, setRefinando] = useState(false);
 
+  const [podcast, setPodcast] = useState<PodcastSegment[] | null>(null);
+  const [gerandoPodcast, setGerandoPodcast] = useState(false);
+  const [erroPodcast, setErroPodcast] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const gerar = useServerFn(gerarRoteiroIA);
