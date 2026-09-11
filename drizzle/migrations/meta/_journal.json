@@ -8,6 +8,13 @@
       "when": 1789065479653,
       "tag": "0000_add_gestor_checkin_to_roteiro_logs",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789157388376,
+      "tag": "0001_restore_has_role_execute",
+      "breakpoints": true
     }
   ]
 }
