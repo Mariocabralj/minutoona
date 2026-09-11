@@ -115,6 +115,7 @@ function Index() {
   const gerar = useServerFn(gerarRoteiroIA);
   const refinar = useServerFn(refinarRoteiroIA);
   const marcarExportado = useServerFn(marcarRoteiroExportado);
+  const gerarPodcast = useServerFn(gerarPodcastRoteiro);
 
   useEffect(() => {
     try {
